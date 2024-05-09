@@ -1,0 +1,40 @@
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+# Define the directory containing your dataset
+train_data_dir = 'data/train'
+
+# Define image preprocessing parameters
+batch_size = 32
+target_size = (224, 224)  # Adjust based on your image dimensions
+
+# Create an ImageDataGenerator for data augmentation and normalization
+train_datagen = ImageDataGenerator(
+    rescale=1./255,  # Normalize pixel values to [0, 1]
+    validation_split=0.2,  # Split the data into training and validation sets
+    rotation_range=20,  # Randomly rotate images by up to 20 degrees
+    width_shift_range=0.2,  # Randomly shift images horizontally by up to 20%
+    height_shift_range=0.2,  # Randomly shift images vertically by up to 20%
+    shear_range=0.2,  # Shear intensity
+    zoom_range=0.2,  # Randomly zoom into images by up to 20%
+    horizontal_flip=True,  # Randomly flip images horizontally
+    fill_mode='nearest'  # Fill in missing pixels after transformations
+)
+
+# Generate training dataset from images in the training directory
+train_generator = train_datagen.flow_from_directory(
+    train_data_dir,  # Directory containing the training images
+    target_size=target_size,  # Resize images to target size
+    batch_size=batch_size,  # Number of images in each batch
+    class_mode='binary',  # Binary classification
+    subset='training'  # Specify that this is the training subset
+)
+
+# Generate validation dataset from images in the training directory
+validation_generator = train_datagen.flow_from_directory(
+    train_data_dir,  # Directory containing the training images
+    target_size=target_size,  # Resize images to target size
+    batch_size=batch_size,  # Number of images in each batch
+    class_mode='binary',  # Binary classification
+    subset='validation'  # Specify that this is the validation subset
+)
