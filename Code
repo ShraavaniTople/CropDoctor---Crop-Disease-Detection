@@ -1,0 +1,103 @@
+# Import necessary libraries
+import os
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+
+# Data preprocessing
+train_datagen = ImageDataGenerator(rescale=1./255, validation_split=0.2)
+
+train_generator = train_datagen.flow_from_directory(
+    'data/train',
+    target_size=(224, 224),
+    batch_size=32,
+    class_mode='binary',
+    subset='training'
+)
+
+validation_generator = train_datagen.flow_from_directory(
+    'data/train',
+    target_size=(224, 224),
+    batch_size=32,
+    class_mode='binary',
+    subset='validation'
+)
+
+# Model building
+model = Sequential([
+    Conv2D(32, (3, 3), activation='relu', input_shape=(224, 224, 3)),
+    MaxPooling2D((2, 2)),
+    Conv2D(64, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+    Conv2D(128, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+    Flatten(),
+    Dense(128, activation='relu'),
+    Dense(1, activation='sigmoid')
+])
+
+# Compile the model
+model.compile(optimizer='adam',
+              loss='binary_crossentropy',
+              metrics=['accuracy'])
+
+# Model training
+history = model.fit(
+    train_generator,
+    steps_per_epoch=train_generator.samples // 32,
+    validation_data=validation_generator,
+    validation_steps=validation_generator.samples // 32,
+    epochs=20
+)
+
+# Save the model
+model.save('models/crop_disease_detection_model.h5')
+
+# Flask web application for model deployment
+from flask import Flask, render_template, request, redirect, url_for
+from werkzeug.utils import secure_filename
+
+app = Flask(__name__)
+
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return redirect(request.url)
+    file = request.files['file']
+    if file.filename == '':
+        return redirect(request.url)
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        prediction = predict_crop_disease(filepath)
+        return render_template('result.html', prediction=prediction, filename=filename)
+    else:
+        return redirect(request.url)
+
+def predict_crop_disease(filepath):
+    img = tf.keras.preprocessing.image.load_img(filepath, target_size=(224, 224))
+    img_array = tf.keras.preprocessing.image.img_to_array(img)
+    img_array = tf.expand_dims(img_array, 0)
+    model = tf.keras.models.load_model('models/crop_disease_detection_model.h5')
+    predictions = model.predict(img_array)
+    if predictions[0] > 0.5:
+        return "Diseased"
+    else:
+        return "Healthy"
+
+if __name__ == '__main__':
+    app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+    app.run(debug=True)
