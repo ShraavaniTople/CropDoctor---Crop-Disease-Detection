@@ -1,0 +1,30 @@
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+# Define the directory containing your test dataset
+test_data_dir = 'data/test'
+
+# Define image preprocessing parameters
+batch_size = 32
+target_size = (224, 224)  # Adjust based on your image dimensions
+
+# Create an ImageDataGenerator for data normalization
+test_datagen = ImageDataGenerator(rescale=1./255)
+
+# Generate test dataset from images in the test directory
+test_generator = test_datagen.flow_from_directory(
+    test_data_dir,  # Directory containing the test images
+    target_size=target_size,  # Resize images to target size
+    batch_size=batch_size,  # Number of images in each batch
+    class_mode='binary',  # Binary classification
+    shuffle=False  # Do not shuffle the data
+)
+
+# Load the trained model
+model = tf.keras.models.load_model('models/crop_disease_detection_model.h5')
+
+# Evaluate the model on the test dataset
+loss, accuracy = model.evaluate(test_generator)
+
+print(f'Test Loss: {loss}')
+print(f'Test Accuracy: {accuracy}')
